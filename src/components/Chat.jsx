@@ -7,11 +7,14 @@ import { io } from 'socket.io-client';
 
 const socket = io("http://localhost:3001");
 
-export function Chat() {
+export function Chat({user, setUser}) {
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
     const [socketId, setSocketId] = useState(null);
+    const [recipient, setRecipient] = useState(null);
     const messagesEndRef = useRef(null);
+
+    
 
     useEffect(() => {
         //On connect set socket id 
@@ -21,11 +24,13 @@ export function Chat() {
         };
 
         const handleReceiveMessage = (data) => {
+            // if data.sender id is not the same as the socketid then add the new message
             if (data.senderId !== socketId) {
                 setMessages(prev => [...prev, data]);
             }
         };
-
+        
+        // if connected run handle connect
         socket.on("connect", handleConnect);
         socket.on("receive_message", handleReceiveMessage);
 
@@ -41,23 +46,33 @@ export function Chat() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // if there are chages in messsages scroll to Bottom
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
+
     const handleSendMessage = (e) => {
+        // function triggered by a form submit and stops the default behavior (like reloading the page)
         if(e) e.preventDefault();
+        // prevents sending empty messages
         if(!inputMessage.trim()) return;
 
+
+        // creates a new message object
         const newMessage ={
-            id: Date.now(),
-            text: inputMessage,
-            senderId : socketId,
-            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+            id: Date.now(), //Id for the message based on the curent timestamp
+            text: inputMessage, //the actuall message text from the input field
+            senderId : socketId, // Your unique socket ID so others know who sent it
+            username : user,
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) //The time you sent it, in HH:MM format
         };
 
+        //Add the new message locally
         setMessages(prev => [...prev, newMessage]);
+        // sends the message to the server over the socket connction
         socket.emit("send_message", newMessage);
+        // reset input field to blank
         setInputMessage("");
     };
 
@@ -68,9 +83,18 @@ export function Chat() {
         }
     };
 
+    const handleLogout = () =>{
+        localStorage.removeItem("username");
+        setUser(null);
+    }
+
     return (
         <div className="w-full max-w-2xl mx-auto p-4">
             <Card className="h-[600px] overflow-hidden">
+                <div className="border-b px-4 py-3 bg-background flex items-center justify-between">
+                    <h2 className="font-semibold text-lg">Chat Room</h2>
+                    <span className="text-sm text-muted-foreground">Logged in as: <b>{user}</b></span>
+                </div>
                 <div className="flex flex-col h-[calc(600px-80px)]">
                     {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto px-6">
@@ -87,6 +111,7 @@ export function Chat() {
                                             {isOwnMessage ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                                         </div>
                                         <div className={`rounded-lg p-3 ${isOwnMessage ? 'bg-primary text-primary-foreground ml-2' : 'bg-muted mr-2'}`}>
+                                            
                                             <p className="text-sm">{message.text}</p>
                                             <span className={`text-xs opacity-70 mt-1 block ${isOwnMessage ? 'text-right' : 'text-left'}`}>
                                             {message.timestamp}
@@ -125,6 +150,9 @@ export function Chat() {
                     </div>
                 </div>
             </Card>
+            <Button onClick={handleLogout} className="mt-4">
+                Logout
+            </Button>
         </div>
     );
 }

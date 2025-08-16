@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require ('cors');
-
+const users = {};
 const app = express();
 app.use(cors());
 
@@ -24,6 +24,19 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
     });
+
+    socket.on("register", (username) => {
+        users[socket.id] = username;
+        console.log(`${usenrame} connected`);
+    })
+
+    socket.on("disconnect", () => {
+        delete users[socket.id];
+    });
+
+    socket.on("privateMessage", ({ to, message, from }) => {
+        io.to(to).emit("message", { from, message });
+    });
 });
 
 app.get('/', (req, res) => {
@@ -33,3 +46,4 @@ app.get('/', (req, res) => {
 server.listen(3001, ()=>{
     console.log('Server is running on https://localhost:3001');
 })
+
